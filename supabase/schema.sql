@@ -50,8 +50,19 @@ create table if not exists public.expenses (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.activity_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete set null,
+  email text not null default '',
+  full_name text not null default '',
+  action text not null,
+  details text not null default '',
+  created_at timestamptz not null default now()
+);
+
 create index if not exists cash_handover_entries_date_idx on public.cash_handover_entries (entry_date, created_at desc);
 create index if not exists expenses_date_idx on public.expenses (entry_date, created_at desc);
+create index if not exists activity_logs_created_at_idx on public.activity_logs (created_at desc);
 
 -- Actual reception state. Existing bookings remain reserved until checked in.
 alter table public.bookings add column if not exists stay_status text not null default 'reserved'
@@ -114,12 +125,14 @@ create trigger on_auth_user_created
 grant select, insert, update, delete on public.bookings to authenticated;
 grant select, insert, update, delete on public.cash_handover_entries to authenticated;
 grant select, insert, update, delete on public.expenses to authenticated;
+grant select, insert on public.activity_logs to authenticated;
 grant select, update on public.profiles to authenticated;
 
 alter table public.bookings enable row level security;
 alter table public.cash_handover_entries enable row level security;
 alter table public.expenses enable row level security;
 alter table public.profiles enable row level security;
+alter table public.activity_logs enable row level security;
 
 -- Remove the original unauthenticated prototype policy if it was previously installed.
 drop policy if exists "temporary admin prototype access" on public.bookings;
@@ -151,3 +164,13 @@ create policy "Admins manage member access" on public.profiles
   for update to authenticated
   using ((select app_security.is_admin()))
   with check ((select app_security.is_admin()));
+
+drop policy if exists "Admins view activity logs" on public.activity_logs;
+create policy "Admins view activity logs" on public.activity_logs
+  for select to authenticated
+  using ((select app_security.is_admin()));
+
+drop policy if exists "Members can create activity logs" on public.activity_logs;
+create policy "Members can create activity logs" on public.activity_logs
+  for insert to authenticated
+  with check (user_id = auth.uid() or (select app_security.is_admin()));

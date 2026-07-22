@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BrowserRouter, NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
-import { checkInBooking, checkOutBooking, getBookings, getProfile, getSession, getMembers, isConfigured, removeBooking, saveBooking, signIn, signOut, signUp, supabase, updateMember } from './api'
+import { checkInBooking, checkOutBooking, getActivityLogs, getBookings, getProfile, getSession, getMembers, isConfigured, logActivity, removeBooking, saveBooking, signIn, signOut, signUp, supabase, updateMember } from './api'
 import { PROPERTY_ROOMS } from './data'
 import BookingForm from './components/BookingForm'
 import OverviewPage from './pages/OverviewPage'
@@ -10,7 +10,7 @@ import ExpensesPage from './pages/ExpensesPage'
 import { formatDisplayDate } from './utils/dateFormat'
 
 const today = new Date().toISOString().slice(0, 10)
-const blankBooking = () => ({ property: 'DD Cottages', room_number: PROPERTY_ROOMS['DD Cottages'][0], guest_name: '', mobile: '', source: 'Direct', check_in: today, check_out: '', adults: 1, children: 0, gross_amount: 0, extra_charges: 0, discount: 0, commission: 0, tds: 0, advance_paid: 0, payment_status: 'Pending', payment_method: 'UPI', paid_to: 'Hotel', settlement_status: 'Pending', checked_out: false })
+const blankBooking = () => ({ property: 'DD Cottages', room_number: '', guest_name: '', mobile: '', source: 'Direct', check_in: today, check_out: '', adults: 1, children: 0, gross_amount: 0, extra_charges: 0, discount: 0, commission: 0, tds: 0, advance_paid: 0, payment_status: 'Pending', payment_method: 'UPI', paid_to: 'Hotel', settlement_status: 'Pending', checked_out: false })
 const dateKey = (date) => date.toISOString().slice(0, 10)
 const money = (value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(value || 0))
 const overlap = (booking, date) => booking.check_in <= date && date < booking.check_out
@@ -37,8 +37,7 @@ function Dashboard({ profile, onSignOut }) {
   function update(name, value) {
     setForm((current) => {
       if (name === 'property') {
-        const rooms = PROPERTY_ROOMS[value] || PROPERTY_ROOMS['DD Cottages']
-        return { ...current, property: value, room_number: rooms[0] || '' }
+        return { ...current, property: value, room_number: '' }
       }
       return { ...current, [name]: value }
     })
@@ -59,7 +58,7 @@ function Dashboard({ profile, onSignOut }) {
   async function checkIn(id) { setCheckingIn(id); setMessage(''); try { await checkInBooking(id); await refresh() } catch (error) { setMessage(error.message) } finally { setCheckingIn('') } }
   async function checkOut(id) { setCheckingOut(id); setMessage(''); try { await checkOutBooking(id); await refresh() } catch (error) { setMessage(error.message) } finally { setCheckingOut('') } }
 
-  return <main><header><div className="header-left"><div className="header-title-block"><p className="eyebrow hero-badge"><span className="brand-name">DD Cottages</span> · admin</p><h1>Booking control centre</h1><p className="subtle">Register stays, collect payments, and see every room’s availability.</p></div><div className="account"><span className="connection live">{profile.full_name || profile.email} · {profile.role}</span><button className="text-button" onClick={onSignOut}>Sign out</button></div></div></header><nav className="main-nav"><NavLink to="/" end>Overview</NavLink><NavLink to="/bookings/new" end>New booking</NavLink><NavLink to="/bookings" end>Bookings</NavLink><NavLink to="/cash-collection" end>Cash collection</NavLink><NavLink to="/expenses" end>Expenses</NavLink>{profile.role === 'admin' && <NavLink to="/members" end>Members</NavLink>}</nav><Routes><Route path="/" element={<OverviewPage totals={totals} bookings={bookings} month={month} setMonth={setMonth} checkIn={checkIn} checkingIn={checkingIn} checkOut={checkOut} checkingOut={checkingOut} onPaymentFollowUps={() => navigate('/bookings?filter=follow-ups')} onCashCollection={() => navigate('/cash-collection')} onOpenProperty={(property) => navigate(`/bookings?property=${encodeURIComponent(property)}`)} />}/><Route path="/bookings/new" element={<BookingForm form={form} update={update} submit={submit} saving={saving} netPayable={netPayable} message={message} cancel={() => setForm(blankBooking())} bookings={bookings}/>}/><Route path="/bookings" element={<BookingsPage bookings={bookings} loading={loading} edit={edit} remove={remove} checkOut={checkOut} checkingOut={checkingOut}/>}/><Route path="/cash-collection" element={<CashCollectionPage bookings={bookings}/>}/><Route path="/expenses" element={<ExpensesPage />}/>{profile.role === 'admin' && <Route path="/members" element={<Members />}/>}<Route path="*" element={<Navigate to="/" replace/>}/></Routes></main>
+  return <main><header><div className="header-left"><div className="header-title-block"><p className="eyebrow hero-badge"><span className="brand-name">DD Cottages</span> · admin</p><h1>Booking control centre</h1><p className="subtle">Register stays, collect payments, and see every room’s availability.</p></div><div className="account"><span className="connection live">{profile.full_name || profile.email} · {profile.role}</span><button className="text-button" onClick={() => onSignOut({ userId: profile.id, email: profile.email, full_name: profile.full_name })}>Sign out</button></div></div></header><nav className="main-nav"><NavLink to="/" end>Overview</NavLink><NavLink to="/bookings/new" end>New booking</NavLink><NavLink to="/bookings" end>Bookings</NavLink><NavLink to="/cash-collection" end>Cash collection</NavLink><NavLink to="/expenses" end>Expenses</NavLink>{profile.role === 'admin' && <><NavLink to="/members" end>Members</NavLink><NavLink to="/activity-log" end>Activity log</NavLink></>}</nav><Routes><Route path="/" element={<OverviewPage totals={totals} bookings={bookings} month={month} setMonth={setMonth} checkIn={checkIn} checkingIn={checkingIn} checkOut={checkOut} checkingOut={checkingOut} onPaymentFollowUps={() => navigate('/bookings?filter=follow-ups')} onCashCollection={() => navigate('/cash-collection')} onOpenProperty={(property) => navigate(`/bookings?property=${encodeURIComponent(property)}`)} />}/><Route path="/bookings/new" element={<BookingForm form={form} update={update} submit={submit} saving={saving} netPayable={netPayable} message={message} cancel={() => setForm(blankBooking())} bookings={bookings}/>}/><Route path="/bookings" element={<BookingsPage bookings={bookings} loading={loading} edit={edit} remove={remove} checkOut={checkOut} checkingOut={checkingOut}/>}/><Route path="/cash-collection" element={<CashCollectionPage bookings={bookings}/>}/><Route path="/expenses" element={<ExpensesPage />}/>{profile.role === 'admin' && <><Route path="/members" element={<Members />}/><Route path="/activity-log" element={<ActivityLog profile={profile} />}/></>}<Route path="*" element={<Navigate to="/" replace/>}/></Routes></main>
 }
 
 function App() {
@@ -90,7 +89,7 @@ function App() {
   if (error) return <main><AuthNotice title="Could not check access" message={error} /></main>
   if (!session) return <AuthScreen />
   if (!profile || profile.status !== 'active') return <main><AuthNotice title="Access request pending" message="Your account is registered. An administrator must approve it before you can view booking data." signOutButton /></main>
-  return <BrowserRouter><Dashboard profile={profile} onSignOut={() => signOut()} /></BrowserRouter>
+  return <BrowserRouter><Dashboard profile={profile} onSignOut={(context) => signOut(context)} /></BrowserRouter>
 }
 
 function AuthScreen() {
@@ -105,7 +104,18 @@ function AuthScreen() {
       if (register) {
         await signUp(values)
         setMessage('Registration received. Check your inbox to confirm your email, then wait for an admin to approve access.')
-      } else await signIn(values.email, values.password)
+      } else {
+        const result = await signIn(values.email, values.password)
+        if (result?.user) {
+          await logActivity({
+            userId: result.user.id,
+            email: values.email,
+            full_name: values.fullName || '',
+            action: 'login',
+            details: 'Signed in to DD Cottages',
+          })
+        }
+      }
     } catch (error) { setMessage(error.message) } finally { setBusy(false) }
   }
   return <main className="auth-page"><section className="auth-card"><p className="eyebrow">DD COTTAGES · MEMBER PORTAL</p><h1>{register ? 'Request team access' : 'Welcome back'}</h1><p className="subtle">{register ? 'Create an account. We will send an email confirmation before an administrator approves access.' : 'Sign in to manage bookings and room availability.'}</p><form onSubmit={submit} className="auth-form">{register && <Field label="Full name" name="fullName" value={values.fullName} onChange={(name, value) => setValues((current) => ({ ...current, [name]: value }))} required/>}<Field label="Email address" name="email" value={values.email} onChange={(name, value) => setValues((current) => ({ ...current, [name]: value }))} type="email" required/><Field label="Password" name="password" value={values.password} onChange={(name, value) => setValues((current) => ({ ...current, [name]: value }))} type="password" minLength="6" required/><button disabled={busy}>{busy ? 'Please wait…' : register ? 'Register and send email' : 'Sign in'}</button></form>{message && <p className="message">{message}</p>}<button className="text-button auth-switch" onClick={() => { setMode(register ? 'login' : 'register'); setMessage('') }}>{register ? 'Already have an account? Sign in' : 'Need access? Register here'}</button></section></main>
@@ -126,6 +136,22 @@ function Members() {
   useEffect(() => { refreshMembers() }, [])
   async function changeMember(member, changes) { try { await updateMember(member.id, changes); await refreshMembers() } catch (error) { setMessage(error.message) } }
   return <section className="records members"><div className="section-heading"><div><p className="eyebrow">ADMIN ONLY</p><h2>Member access</h2></div><button className="text-button" onClick={refreshMembers}>Refresh</button></div><p className="subtle">New registrations appear as pending after email confirmation. Activate or suspend access here.</p>{message && <p className="message">{message}</p>}<div className="table-wrap"><table><thead><tr><th>Member</th><th>Role</th><th>Access</th></tr></thead><tbody>{members.map((member) => <tr key={member.id}><td><strong>{member.full_name || 'No name'}</strong><small>{member.email}</small></td><td><select value={member.role} onChange={(event) => changeMember(member, { role: event.target.value })}><option value="staff">Staff</option><option value="admin">Admin</option></select></td><td><select value={member.status} onChange={(event) => changeMember(member, { status: event.target.value })}><option value="pending">Pending</option><option value="active">Active</option><option value="suspended">Suspended</option></select></td></tr>)}</tbody></table></div></section>
+}
+
+function ActivityLog({ profile }) {
+  const [entries, setEntries] = useState([])
+  const [message, setMessage] = useState('')
+  async function refresh() {
+    try {
+      const logs = await getActivityLogs()
+      setEntries(logs)
+    } catch (error) {
+      setMessage(error.message)
+    }
+  }
+  useEffect(() => { void refresh() }, [])
+  if (profile.role !== 'admin') return null
+  return <section className="records"><div className="section-heading"><div><p className="eyebrow">ADMIN ONLY</p><h2>Activity log</h2></div><button className="text-button" onClick={() => void refresh()}>Refresh</button></div><p className="subtle">Tracks member sign-ins, sign-outs, and related session activity.</p>{message && <p className="message">{message}</p>}<div className="table-wrap"><table><thead><tr><th>User</th><th>Action</th><th>Details</th><th>Time</th></tr></thead><tbody>{entries.map((entry) => <tr key={entry.id}><td><strong>{entry.full_name || entry.email || 'Unknown user'}</strong><small>{entry.email}</small></td><td>{entry.action}</td><td>{entry.details}</td><td>{entry.created_at ? new Date(entry.created_at).toLocaleString('en-IN') : '—'}</td></tr>)}</tbody></table></div></section>
 }
 
 function Calendar({ bookings, month, setMonth }) {

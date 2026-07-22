@@ -32,7 +32,24 @@ export async function signUp({ fullName, email, password }) {
   return data
 }
 
-export async function signOut() { await client().auth.signOut() }
+export async function signOut(userContext = {}) {
+  const { userId, email, full_name } = userContext
+  if (userId) {
+    try {
+      await client().from('activity_logs').insert({
+        user_id: userId,
+        email: email || '',
+        full_name: full_name || '',
+        action: 'logout',
+        details: 'Signed out of DD Cottages',
+        created_at: new Date().toISOString(),
+      })
+    } catch (error) {
+      console.error(error)
+    }
+  }
+  await client().auth.signOut()
+}
 
 export async function getProfile(id) {
   const { data, error } = await client().from('profiles').select('*').eq('id', id).maybeSingle()
@@ -42,6 +59,30 @@ export async function getProfile(id) {
 
 export async function getMembers() {
   const { data, error } = await client().from('profiles').select('*').order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+export async function logActivity({ userId, email, full_name, action, details = '' }) {
+  if (!supabase || !userId) return null
+  const { data, error } = await client().from('activity_logs').insert({
+    user_id: userId,
+    email: email || '',
+    full_name: full_name || '',
+    action,
+    details,
+    created_at: new Date().toISOString(),
+  }).select('*').single()
+  if (error) {
+    console.error(error)
+    return null
+  }
+  return data
+}
+
+export async function getActivityLogs() {
+  if (!supabase) return []
+  const { data, error } = await client().from('activity_logs').select('*').order('created_at', { ascending: false })
   if (error) throw error
   return data
 }
