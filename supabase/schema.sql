@@ -15,6 +15,7 @@ create table if not exists public.bookings (
   discount numeric(12,2) not null default 0,
   commission numeric(12,2) not null default 0,
   tds numeric(12,2) not null default 0,
+  comment text not null default '',
   payment_status text not null default 'Pending',
   payment_method text,
   paid_to text,

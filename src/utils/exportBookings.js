@@ -21,6 +21,7 @@ export function exportBookings(bookings, filename = 'DD-Cottages-Bookings') {
     'TDS (₹)': Number(booking.tds || 0),
     'Net Payable (₹)': Number(booking.gross_amount || 0) + Number(booking.extra_charges || 0) - Number(booking.discount || 0) - Number(booking.commission || 0) - Number(booking.tds || 0),
     'Advance Paid (₹)': Number(booking.advance_paid || 0),
+    Comment: booking.comment || '',
     'Payment Status': booking.payment_status,
     'Payment Method': booking.payment_method || '',
     'Paid To': booking.paid_to || '',

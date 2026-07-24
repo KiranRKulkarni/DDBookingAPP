@@ -10,7 +10,7 @@ import ExpensesPage from './pages/ExpensesPage'
 import { formatDisplayDate } from './utils/dateFormat'
 
 const today = new Date().toISOString().slice(0, 10)
-const blankBooking = () => ({ property: 'DD Cottages', room_number: '', guest_name: '', mobile: '', source: 'Direct', check_in: today, check_out: '', adults: 1, children: 0, gross_amount: 0, extra_charges: 0, discount: 0, commission: 0, tds: 0, advance_paid: 0, payment_status: 'Pending', payment_method: 'UPI', paid_to: 'Hotel', settlement_status: 'Pending', checked_out: false })
+const blankBooking = () => ({ property: 'DD Cottages', room_number: '', guest_name: '', mobile: '', source: 'Direct', check_in: today, check_out: '', adults: 1, children: 0, gross_amount: 0, extra_charges: 0, discount: 0, commission: 0, tds: 0, advance_paid: 0, comment: '', payment_status: 'Pending', payment_method: 'UPI', paid_to: 'Hotel', settlement_status: 'Pending', checked_out: false })
 const dateKey = (date) => date.toISOString().slice(0, 10)
 const money = (value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(value || 0))
 const overlap = (booking, date) => booking.check_in <= date && date < booking.check_out
@@ -31,6 +31,11 @@ function Dashboard({ profile, onSignOut }) {
   }
   useEffect(() => { refresh() }, [])
 
+  // When creating a new booking: if check-in is today and check-out is empty or not after check-in,
+  // auto-set check-out to tomorrow. This also covers the case where the initial blank form
+  // has today's date prefilled but no checkout.
+  // Removed auto-check logic for check-out
+
   const totals = useMemo(() => ({ bookings: bookings.length, revenue: bookings.reduce((sum, b) => sum + Number(b.gross_amount), 0), pending: bookings.filter((b) => b.payment_status !== 'Paid').length, cash: bookings.filter((b) => b.payment_method === 'Cash').reduce((sum, b) => sum + (b.payment_status === 'Paid' ? Number(b.gross_amount || 0) : Number(b.advance_paid || 0)), 0) }), [bookings])
   const netPayable = Number(form.gross_amount || 0) + Number(form.extra_charges || 0) - Number(form.discount || 0) - Number(form.commission || 0) - Number(form.tds || 0)
 
@@ -39,6 +44,7 @@ function Dashboard({ profile, onSignOut }) {
       if (name === 'property') {
         return { ...current, property: value, room_number: '' }
       }
+      // Removed logic for auto-setting check-out based on check-in
       return { ...current, [name]: value }
     })
   }
@@ -47,12 +53,20 @@ function Dashboard({ profile, onSignOut }) {
   async function submit(event) {
     event.preventDefault(); setMessage('')
     if (!form.check_out || form.check_out <= form.check_in) return setMessage('Check-out must be after check-in.')
-    const selectedRooms = form.room_number.split(',').filter(Boolean)
-    if (!selectedRooms.length) return setMessage('Select at least one room.')
+    const allowedRooms = PROPERTY_ROOMS[form.property] || PROPERTY_ROOMS['DD Cottages']
+    const selectedRooms = (form.room_number || '').split(',').map((room) => room.trim()).filter(Boolean).filter((room) => allowedRooms.includes(room))
+    if (!selectedRooms.length) return setMessage('Select at least one valid room for the chosen property.')
     const conflicting = bookings.find((b) => b.id !== form.id && b.property === form.property && b.checked_out !== true && b.stay_status !== 'checked_out' && b.check_in < form.check_out && form.check_in < b.check_out && b.room_number.split(',').some((room) => selectedRooms.includes(room)))
     if (conflicting) return setMessage(`One or more selected rooms are already booked for overlapping dates.`)
     setSaving(true)
-    try { await saveBooking({ ...form, adults: Number(form.adults), children: Number(form.children), gross_amount: Number(form.gross_amount), extra_charges: Number(form.extra_charges), discount: Number(form.discount), commission: Number(form.commission), tds: Number(form.tds), advance_paid: Number(form.advance_paid) }); setForm(blankBooking()); setMessage('Booking saved.'); await refresh(); navigate('/bookings') } catch (error) { setMessage(error.message) } finally { setSaving(false) }
+    try {
+      const payload = { ...form, room_number: selectedRooms.join(','), adults: Number(form.adults), children: Number(form.children), gross_amount: Number(form.gross_amount), extra_charges: Number(form.extra_charges), discount: Number(form.discount), commission: Number(form.commission), tds: Number(form.tds), advance_paid: Number(form.advance_paid), comment: form.comment || '' }
+      await saveBooking(payload)
+      setForm(blankBooking())
+      setMessage('Booking saved.')
+      await refresh()
+      navigate('/bookings')
+    } catch (error) { setMessage(error.message) } finally { setSaving(false) }
   }
   async function remove(id) { if (!window.confirm('Delete this booking?')) return; try { await removeBooking(id); await refresh() } catch (error) { setMessage(error.message) } }
   async function checkIn(id) { setCheckingIn(id); setMessage(''); try { await checkInBooking(id); await refresh() } catch (error) { setMessage(error.message) } finally { setCheckingIn('') } }
