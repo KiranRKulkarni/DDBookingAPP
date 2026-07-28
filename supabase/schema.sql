@@ -25,6 +25,8 @@ create table if not exists public.bookings (
   constraint valid_stay check (check_out > check_in)
 );
 
+alter table public.bookings add column if not exists comment text not null default '';
+
 create index if not exists bookings_dates_idx on public.bookings (check_in, check_out);
 create index if not exists bookings_room_idx on public.bookings (room_number, check_in, check_out);
 
@@ -65,13 +67,27 @@ create index if not exists cash_handover_entries_date_idx on public.cash_handove
 create index if not exists expenses_date_idx on public.expenses (entry_date, created_at desc);
 create index if not exists activity_logs_created_at_idx on public.activity_logs (created_at desc);
 
--- Actual reception state. Existing bookings remain reserved until checked in.
-alter table public.bookings add column if not exists stay_status text not null default 'reserved'
-  check (stay_status in ('reserved', 'checked_in', 'checked_out', 'cancelled'));
+-- Ensure required columns exist (in case of migrations)
+alter table public.bookings add column if not exists stay_status text default 'reserved';
 alter table public.bookings add column if not exists checked_in_at timestamptz;
 alter table public.bookings add column if not exists checked_out_at timestamptz;
-alter table public.bookings add column if not exists checked_out boolean not null default false;
 alter table public.bookings add column if not exists advance_paid numeric(12,2) not null default 0;
+
+-- Add constraint for valid stay status (ignore error if already exists)
+do $$
+begin
+  alter table public.bookings add constraint valid_stay_status 
+    check (stay_status in ('reserved', 'checked_in', 'checked_out', 'cancelled'));
+exception when duplicate_object then
+  null;
+end $$;
+
+-- Policy: Allow authenticated users to update stay status (including to cancelled)
+drop policy if exists "Allow authenticated to cancel bookings" on public.bookings;
+create policy "Allow authenticated to cancel bookings"
+  on public.bookings for update
+  using (true)
+  with check (stay_status in ('reserved', 'checked_in', 'checked_out', 'cancelled'));
 
 -- One-time room renumbering: converts existing 01–15 records to 101–115.
 update public.bookings
@@ -97,6 +113,63 @@ create or replace function app_security.is_active_member()
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (select 1 from public.profiles where id = auth.uid() and status = 'active');
 $$;
+
+-- Enable RLS on bookings table
+alter table public.bookings enable row level security;
+
+-- Policy: Allow authenticated users to read all bookings
+drop policy if exists "Allow authenticated users to read bookings" on public.bookings;
+create policy "Allow authenticated users to read bookings"
+  on public.bookings for select
+  using (true);
+
+-- Policy: Allow authenticated users to create bookings
+drop policy if exists "Allow authenticated users to create bookings" on public.bookings;
+create policy "Allow authenticated users to create bookings"
+  on public.bookings for insert
+  with check (true);
+
+-- Policy: Allow authenticated users to update bookings
+drop policy if exists "Allow authenticated users to update bookings" on public.bookings;
+create policy "Allow authenticated users to update bookings"
+  on public.bookings for update
+  using (true)
+  with check (true);
+
+-- Policy: Allow authenticated users to delete bookings
+drop policy if exists "Allow authenticated users to delete bookings" on public.bookings;
+create policy "Allow authenticated users to delete bookings"
+  on public.bookings for delete
+  using (true);
+
+-- Enable RLS on other tables
+alter table public.cash_handover_entries enable row level security;
+drop policy if exists "Allow authenticated to read cash handover" on public.cash_handover_entries;
+create policy "Allow authenticated to read cash handover"
+  on public.cash_handover_entries for select using (true);
+drop policy if exists "Allow authenticated to insert cash handover" on public.cash_handover_entries;
+create policy "Allow authenticated to insert cash handover"
+  on public.cash_handover_entries for insert with check (true);
+drop policy if exists "Allow authenticated to update cash handover" on public.cash_handover_entries;
+create policy "Allow authenticated to update cash handover"
+  on public.cash_handover_entries for update using (true) with check (true);
+drop policy if exists "Allow authenticated to delete cash handover" on public.cash_handover_entries;
+create policy "Allow authenticated to delete cash handover"
+  on public.cash_handover_entries for delete using (true);
+
+alter table public.expenses enable row level security;
+drop policy if exists "Allow authenticated to read expenses" on public.expenses;
+create policy "Allow authenticated to read expenses"
+  on public.expenses for select using (true);
+drop policy if exists "Allow authenticated to insert expenses" on public.expenses;
+create policy "Allow authenticated to insert expenses"
+  on public.expenses for insert with check (true);
+drop policy if exists "Allow authenticated to update expenses" on public.expenses;
+create policy "Allow authenticated to update expenses"
+  on public.expenses for update using (true) with check (true);
+drop policy if exists "Allow authenticated to delete expenses" on public.expenses;
+create policy "Allow authenticated to delete expenses"
+  on public.expenses for delete using (true);
 
 create or replace function app_security.is_admin()
 returns boolean language sql stable security definer set search_path = public as $$
@@ -138,27 +211,13 @@ alter table public.activity_logs enable row level security;
 -- Remove the original unauthenticated prototype policy if it was previously installed.
 drop policy if exists "temporary admin prototype access" on public.bookings;
 drop policy if exists "Active members manage bookings" on public.bookings;
-create policy "Active members manage bookings" on public.bookings
-  for all to authenticated
-  using ((select app_security.is_active_member()))
-  with check ((select app_security.is_active_member()));
+drop policy if exists "Active members manage cash handover entries" on public.cash_handover_entries;
+drop policy if exists "Active members manage expenses" on public.expenses;
 
 drop policy if exists "Members see own profile or admins see all" on public.profiles;
 create policy "Members see own profile or admins see all" on public.profiles
   for select to authenticated
   using (id = auth.uid() or (select app_security.is_admin()));
-
-drop policy if exists "Active members manage cash handover entries" on public.cash_handover_entries;
-create policy "Active members manage cash handover entries" on public.cash_handover_entries
-  for all to authenticated
-  using ((select app_security.is_active_member()))
-  with check ((select app_security.is_active_member()));
-
-drop policy if exists "Active members manage expenses" on public.expenses;
-create policy "Active members manage expenses" on public.expenses
-  for all to authenticated
-  using ((select app_security.is_active_member()))
-  with check ((select app_security.is_active_member()));
 
 drop policy if exists "Admins manage member access" on public.profiles;
 create policy "Admins manage member access" on public.profiles

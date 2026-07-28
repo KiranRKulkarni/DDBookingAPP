@@ -121,15 +121,29 @@ export async function removeBooking(id) {
   if (error) throw error
 }
 
+export async function cancelBooking(id) {
+  if (!id || typeof id !== 'string') throw new Error('Invalid booking ID')
+  const { data, error } = await client().from('bookings')
+    .update({ stay_status: 'cancelled', checked_out: false })
+    .eq('id', id)
+    .select().single()
+  if (error) throw error
+  return data
+}
+
 export async function checkInBooking(id) {
+  if (!id) throw new Error('Booking ID is required')
+  const idString = String(id)
+  if (typeof idString !== 'string' || idString.includes('[object')) throw new Error(`Invalid booking ID format: ${idString}`)
   const { data, error } = await client().from('bookings')
     .update({ stay_status: 'checked_in', checked_in_at: new Date().toISOString(), checked_out: false })
-    .eq('id', id).select().single()
+    .eq('id', idString).select().single()
   if (error) throw error
   return data
 }
 
 export async function checkOutBooking(id) {
+  if (!id || typeof id !== 'string') throw new Error('Invalid booking ID')
   const { data, error } = await client().from('bookings')
     .update({ stay_status: 'checked_out', checked_out_at: new Date().toISOString(), checked_out: true })
     .eq('id', id).select().single()
