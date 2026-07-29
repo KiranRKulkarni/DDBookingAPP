@@ -35,19 +35,39 @@ function BookingsPageUI({ bookings, loading, edit, remove, cancel, checkIn, chec
     : cancelledFilter
       ? bookings.filter((booking) => booking.stay_status === 'cancelled')
       : bookings
+  const today = new Date().toISOString().slice(0, 10)
+  const [activeTab, setActiveTab] = useState('all')
+  const isCheckedOut = (booking) => booking.checked_out === true || booking.stay_status === 'checked_out'
+  const isCheckedIn = (booking) => booking.stay_status === 'checked_in'
+  const isCancelled = (booking) => booking.stay_status === 'cancelled'
+  const canManageStay = (booking) => !isCheckedOut(booking) && !isCancelled(booking)
+  const canCheckIn = (booking) => canManageStay(booking) && !isCheckedIn(booking)
+  const canCheckOut = (booking) => canManageStay(booking) && isCheckedIn(booking)
   const baseFilteredBookings = propertyFilter
     ? visibleBookings.filter((booking) => booking.property === propertyFilter)
     : selectedProperty === 'all'
       ? visibleBookings
       : visibleBookings.filter((booking) => booking.property === selectedProperty)
+  const isTodayBooking = (booking) => {
+    const isArrivalToday = booking.check_in === today && !isCheckedOut(booking) && booking.stay_status !== 'checked_in' && booking.stay_status !== 'cancelled'
+    const isCheckInToday = booking.check_in === today && !isCheckedOut(booking) && booking.stay_status === 'checked_in'
+    const isCheckoutToday = booking.check_out === today && !isCheckedOut(booking) && booking.stay_status === 'checked_in'
+    const isOccupiedToday = booking.check_in < today && booking.check_out > today && !isCheckedOut(booking) && booking.stay_status === 'checked_in'
+    return isArrivalToday || isCheckInToday || isCheckoutToday || isOccupiedToday
+  }
+  const todayBookingCount = baseFilteredBookings.filter(isTodayBooking).length
+  const handleTabChange = (tab) => { setActiveTab(tab); setPage(1) }
+  const tabFilteredBookings = activeTab === 'today'
+    ? baseFilteredBookings.filter(isTodayBooking)
+    : baseFilteredBookings
   const filteredBookings = useMemo(() => {
-    if (!appliedDateRange.from && !appliedDateRange.to) return baseFilteredBookings
-    return baseFilteredBookings.filter((booking) => {
+    if (!appliedDateRange.from && !appliedDateRange.to) return tabFilteredBookings
+    return tabFilteredBookings.filter((booking) => {
       const fromOk = !appliedDateRange.from || booking.check_in >= appliedDateRange.from
       const toOk = !appliedDateRange.to || booking.check_in <= appliedDateRange.to
       return fromOk && toOk
     })
-  }, [baseFilteredBookings, appliedDateRange])
+  }, [tabFilteredBookings, appliedDateRange])
   const sortedBookings = useMemo(() => [...filteredBookings].sort((a, b) => {
     const stateRank = (booking) => {
       if (booking.checked_out === true || booking.stay_status === 'checked_out' || booking.stay_status === 'cancelled') return 2
@@ -74,13 +94,6 @@ function BookingsPageUI({ bookings, loading, edit, remove, cancel, checkIn, chec
     const start = (safePage - 1) * PAGE_SIZE
     return sortedBookings.slice(start, start + PAGE_SIZE)
   }, [safePage, sortedBookings])
-  const today = new Date().toISOString().slice(0, 10)
-  const isCheckedOut = (booking) => booking.checked_out === true || booking.stay_status === 'checked_out'
-  const isCheckedIn = (booking) => booking.stay_status === 'checked_in'
-  const isCancelled = (booking) => booking.stay_status === 'cancelled'
-  const canManageStay = (booking) => !isCheckedOut(booking) && !isCancelled(booking)
-  const canCheckIn = (booking) => canManageStay(booking) && !isCheckedIn(booking)
-  const canCheckOut = (booking) => canManageStay(booking) && isCheckedIn(booking)
   const getPrimaryActionClass = (booking) => {
     if (isCheckedOut(booking)) return 'primary-action is-completed'
     if (isCheckedIn(booking)) return 'primary-action is-checkout'
@@ -97,25 +110,25 @@ function BookingsPageUI({ bookings, loading, edit, remove, cancel, checkIn, chec
   }
   const getBookingStatusLabel = (booking) => {
     if (isCheckedOut(booking)) return 'Checked Out'
+    if (booking.check_out === today && !isCheckedOut(booking) && booking.stay_status === 'checked_in') return 'Checking Out Today'
     if (booking.stay_status === 'checked_in') return 'Checked In'
     if (booking.stay_status === 'cancelled') return 'Cancelled'
-    if (booking.check_out === today && !isCheckedOut(booking) && booking.stay_status === 'checked_in') return 'Checking Out Today'
     if (booking.check_in === today && !isCheckedOut(booking) && booking.stay_status !== 'checked_in' && booking.stay_status !== 'cancelled') return 'Arriving Today'
     return 'Reserved'
   }
   const getBookingStatusClass = (booking) => {
     if (isCheckedOut(booking)) return 'checked-out'
+    if (booking.check_out === today && !isCheckedOut(booking) && booking.stay_status === 'checked_in') return 'checkout-today'
     if (booking.stay_status === 'checked_in') return 'checked-in'
     if (booking.stay_status === 'cancelled') return 'cancelled'
-    if (booking.check_out === today && !isCheckedOut(booking) && booking.stay_status === 'checked_in') return 'checkout-today'
     if (booking.check_in === today && !isCheckedOut(booking) && booking.stay_status !== 'checked_in' && booking.stay_status !== 'cancelled') return 'arriving-today'
     return 'reserved'
   }
   const getRowStatusClass = (booking) => {
     if (isCheckedOut(booking)) return 'status-checked-out'
+    if (booking.check_out === today && !isCheckedOut(booking) && booking.stay_status === 'checked_in') return 'status-checkout-today'
     if (booking.stay_status === 'checked_in') return 'status-checked-in'
     if (booking.stay_status === 'cancelled') return 'status-cancelled'
-    if (booking.check_out === today && !isCheckedOut(booking) && booking.stay_status === 'checked_in') return 'status-checkout-today'
     if (booking.check_in === today && !isCheckedOut(booking) && booking.stay_status !== 'checked_in' && booking.stay_status !== 'cancelled') return 'status-arriving-today'
     return 'status-reserved'
   }
@@ -138,7 +151,7 @@ function BookingsPageUI({ bookings, loading, edit, remove, cancel, checkIn, chec
       : propertyFilter
         ? 'PROPERTY BOOKINGS'
         : 'RESERVATIONS'
-  return <section className="records"><div className="section-heading"><div><p className="eyebrow">{headingKey}</p><h2>{heading}</h2>{(followingUp || propertyFilter || cancelledFilter) && <Link className="text-button" to="/bookings">Show all bookings</Link>}</div><div className="table-controls"><label>Property<select value={selectedProperty} onChange={(event) => { setSelectedProperty(event.target.value); setPage(1) }}><option value="all">All properties</option><option value="DD Cottages">DD Cottages</option><option value="DD Serenity Cottages">DD Serenity Cottages</option><option value="DD Valley Cottages">DD Valley Cottages</option></select></label><div className="date-filter-group"><label>From<input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label><label>To<input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label><button className="text-button" onClick={() => { setAppliedDateRange({ from: dateFrom, to: dateTo }); setPage(1) }}>Search</button></div><button className="export-button" onClick={() => exportBookings(sortedBookings, followingUp ? 'DD-Cottages-Payment-Follow-Ups' : cancelledFilter ? 'DD-Cottages-Canceled-Bookings' : propertyFilter ? `DD-Cottages-${propertyFilter}` : 'DD-Cottages-All-Bookings')}>Export Excel</button><span>{loading ? 'Loading…' : `${sortedBookings.length} records`}</span></div></div><div className="cash-summary"><div className="cash-metric"><small>Total gross</small><strong>{money(totals.gross)}</strong></div><div className="cash-metric"><small>Total extra</small><strong>{money(totals.extra)}</strong></div><div className="cash-metric"><small>Total remaining</small><strong>{money(totals.remaining)}</strong></div></div><div className="table-wrap"><table><thead><tr><th>Guest</th><th>Room</th><th>Stay</th><th>Amount</th><th>Extra</th><th>Advance paid</th><th>Remaining</th><th>Payment</th><th>Status</th><th>Actions</th></tr></thead><tbody>{visiblePageBookings.length ? visiblePageBookings.map((booking) => {   const guestName = booking.guest_name || 'Guest'; const guestInitials = guestName.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || '?'; const guestPhone = booking.mobile || booking.phone || '—'; const stayDetails = getStayDetails(booking); const net = Number(booking.gross_amount || 0) + Number(booking.extra_charges || 0) - Number(booking.discount || 0) - Number(booking.commission || 0) - Number(booking.tds || 0); const remaining = booking.payment_status === 'Paid' ? 0 : Math.max(net - Number(booking.advance_paid || 0), 0);
+  return <section className="records"><div className="section-heading"><div><p className="eyebrow">{headingKey}</p><h2>{heading}</h2>{(followingUp || propertyFilter || cancelledFilter) && <Link className="text-button" to="/bookings">Show all bookings</Link>}</div></div><div className="top-controls"><div className="tab-controls"><button type="button" className={activeTab === 'all' ? 'tab active' : 'tab'} onClick={() => handleTabChange('all')}>All bookings</button><button type="button" className={activeTab === 'today' ? 'tab active' : 'tab'} onClick={() => handleTabChange('today')}>Today ({todayBookingCount})</button></div><div className="table-controls"><label>Property<select value={selectedProperty} onChange={(event) => { setSelectedProperty(event.target.value); setPage(1) }}><option value="all">All properties</option><option value="DD Cottages">DD Cottages</option><option value="DD Serenity Cottages">DD Serenity Cottages</option><option value="DD Valley Cottages">DD Valley Cottages</option></select></label><div className="date-filter-group"><label>From<input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label><label>To<input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label><button className="text-button" onClick={() => { setAppliedDateRange({ from: dateFrom, to: dateTo }); setPage(1) }}>Search</button></div><button className="export-button" onClick={() => exportBookings(sortedBookings, followingUp ? 'DD-Cottages-Payment-Follow-Ups' : cancelledFilter ? 'DD-Cottages-Canceled-Bookings' : propertyFilter ? `DD-Cottages-${propertyFilter}` : 'DD-Cottages-All-Bookings')}>Export Excel</button><span>{loading ? 'Loading…' : `${sortedBookings.length} records`}</span></div></div><div className="cash-summary"><div className="cash-metric"><small>Total gross</small><strong>{money(totals.gross)}</strong></div><div className="cash-metric"><small>Total extra</small><strong>{money(totals.extra)}</strong></div><div className="cash-metric"><small>Total remaining</small><strong>{money(totals.remaining)}</strong></div></div><div className="table-wrap"><table><thead><tr><th>Guest</th><th>Room</th><th>Stay</th><th>Amount</th><th>Extra</th><th>Advance paid</th><th>Remaining</th><th>Payment</th><th>Status</th><th>Actions</th></tr></thead><tbody>{visiblePageBookings.length ? visiblePageBookings.map((booking) => {   const guestName = booking.guest_name || 'Guest'; const guestInitials = guestName.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || '?'; const guestPhone = booking.mobile || booking.phone || '—'; const stayDetails = getStayDetails(booking); const net = Number(booking.gross_amount || 0) + Number(booking.extra_charges || 0) - Number(booking.discount || 0) - Number(booking.commission || 0) - Number(booking.tds || 0); const remaining = booking.payment_status === 'Paid' ? 0 : Math.max(net - Number(booking.advance_paid || 0), 0);
   const isCheckoutToday = booking.check_out === today && !isCheckedOut(booking) && booking.stay_status === 'checked_in'
   const isHighlighted = (booking.stay_status === 'checked_in' && !isCheckedOut(booking)) || isCheckoutToday
   const rowClassName = [isHighlighted ? (isCheckoutToday ? 'row-checkout-today' : 'row-checked-in') : '', getRowStatusClass(booking)].filter(Boolean).join(' ');
