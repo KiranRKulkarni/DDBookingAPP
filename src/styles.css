@@ -32,6 +32,12 @@ header,
   justify-content: space-between;
   gap: 18px;
 }
+.status-line {
+  margin-top: 12px;
+}
+.status-line .status-badge {
+  font-size: 10px;
+}
 header {
   margin-bottom: 24px;
 }
@@ -534,6 +540,11 @@ td small {
   color: #4b5d7c;
   border: 1px solid #c5d3e8;
 }
+.status-badge.occupied {
+  background: #e9f6ef;
+  color: #276956;
+  border: 1px solid #c7ded1;
+}
 .status-badge.checked-out {
   background: #f0ebe5;
   color: #7a6850;
@@ -590,7 +601,7 @@ tbody tr.status-reserved {
 tbody tr.status-arriving-today {
   background: linear-gradient(90deg, #eef3ee 0%, #e8eee8 100%);
 }
-tbody tr.status-checked-in {
+tbody tr.status-occupied {
   background: linear-gradient(90deg, #ecf0f7 0%, #e7ecf5 100%);
 }
 tbody tr.status-checked-out {
@@ -1365,11 +1376,13 @@ td.occupied-room {
   cursor: not-allowed;
   opacity: 0.6;
 }
-.room-selector label.occupied span {
+.room-selector label.occupied span,
+.room-selector label.reserved span {
   background: #fff5e6;
   border-color: #f0dcae;
 }
-.room-selector label.occupied small.occupied-label {
+.room-selector label.occupied small.room-status-label,
+.room-selector label.reserved small.room-status-label {
   position: absolute;
   bottom: -14px;
   left: 0;

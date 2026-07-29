@@ -50,6 +50,18 @@ const Textarea = ({ label, name, value, onChange, ...props }) => (
     />
   </label>
 );
+const getBookingStatusLabel = (booking = {}) => {
+  if (booking.checked_out === true || booking.stay_status === 'checked_out') return 'Checked Out'
+  if (booking.stay_status === 'checked_in') return 'Occupied'
+  if (booking.stay_status === 'cancelled' || booking.stay_status === 'canceled') return 'Cancelled'
+  return 'Reserved'
+}
+const getBookingStatusClass = (booking = {}) => {
+  if (booking.checked_out === true || booking.stay_status === 'checked_out') return 'checked-out'
+  if (booking.stay_status === 'checked_in') return 'occupied'
+  if (booking.stay_status === 'cancelled' || booking.stay_status === 'canceled') return 'cancelled'
+  return 'reserved'
+}
 function RoomSelector({ value, onChange, bookings = [], form = {} }) {
   const availableRooms =
     PROPERTY_ROOMS[form.property] || PROPERTY_ROOMS["DD Cottages"];
@@ -59,17 +71,29 @@ function RoomSelector({ value, onChange, bookings = [], form = {} }) {
       .filter(Boolean)
       .filter((room) => availableRooms.includes(room)),
   );
-  const occupiedRooms = bookings
+  const roomStatusMap = bookings
     .filter(
       (b) =>
         b.property === form.property &&
         b.id !== form.id &&
         b.checked_out !== true &&
         b.stay_status !== "checked_out" &&
+        b.stay_status !== "cancelled" &&
+        b.stay_status !== "canceled" &&
         b.check_in < form.check_out &&
         form.check_in < b.check_out,
     )
-    .flatMap((b) => b.room_number.split(","));
+    .reduce((map, booking) => {
+      booking.room_number
+        .split(",")
+        .filter(Boolean)
+        .forEach((room) => {
+          if (!availableRooms.includes(room)) return
+          if (map[room] === "occupied") return
+          map[room] = booking.stay_status === "checked_in" ? "occupied" : "reserved"
+        })
+      return map
+    }, {})
   const toggle = (room) => {
     const next = new Set(selected);
     next.has(room) ? next.delete(room) : next.add(room);
@@ -83,20 +107,25 @@ function RoomSelector({ value, onChange, bookings = [], form = {} }) {
       <legend>Rooms / Cottages</legend>
       <div>
         {availableRooms.map((room) => {
-          const isOccupied = occupiedRooms.includes(room);
+          const status = roomStatusMap[room]
+          const isUnavailable = status === 'occupied' || status === 'reserved'
           return (
-            <label key={room} className={isOccupied ? "disabled occupied" : ""}>
+            <label key={room} className={isUnavailable ? `disabled ${status}` : ""}>
               <input
                 type="checkbox"
                 checked={selected.has(room)}
-                onChange={() => !isOccupied && toggle(room)}
-                disabled={isOccupied}
+                onChange={() => !isUnavailable && toggle(room)}
+                disabled={isUnavailable}
               />
               <span>
                 {room}
-                {isOccupied && " ●"}
+                {isUnavailable && " ●"}
               </span>
-              {isOccupied && <small className="occupied-label">Occupied</small>}
+              {status && (
+                <small className="room-status-label">
+                  {status === 'occupied' ? 'Occupied' : 'Reserved'}
+                </small>
+              )}
             </label>
           );
         })}
@@ -126,6 +155,11 @@ export default function BookingForm({
         <div>
           <p className="eyebrow">{form.id ? "EDIT BOOKING" : "NEW BOOKING"}</p>
           <h2>{form.id ? form.guest_name : "Add a reservation"}</h2>
+          <div className="status-line">
+            <span className={`status-badge ${getBookingStatusClass(form)}`}>
+              {getBookingStatusLabel(form)}
+            </span>
+          </div>
         </div>
         {form.id && (
           <button type="button" className="text-button" onClick={cancel}>

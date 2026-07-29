@@ -51,7 +51,7 @@ function BookingsPageUI({ bookings, loading, edit, remove, cancel, checkIn, chec
   const isTodayBooking = (booking) => {
     const isArrivalToday = booking.check_in === today && !isCheckedOut(booking) && booking.stay_status !== 'checked_in' && booking.stay_status !== 'cancelled'
     const isCheckInToday = booking.check_in === today && !isCheckedOut(booking) && booking.stay_status === 'checked_in'
-    const isCheckoutToday = booking.check_out === today && !isCheckedOut(booking) && booking.stay_status === 'checked_in'
+    const isCheckoutToday = booking.check_out === today && booking.stay_status !== 'cancelled'
     const isOccupiedToday = booking.check_in < today && booking.check_out > today && !isCheckedOut(booking) && booking.stay_status === 'checked_in'
     return isArrivalToday || isCheckInToday || isCheckoutToday || isOccupiedToday
   }
@@ -76,6 +76,14 @@ function BookingsPageUI({ bookings, loading, edit, remove, cancel, checkIn, chec
     }
     const stateComparison = stateRank(a) - stateRank(b)
     if (stateComparison !== 0) return stateComparison
+    const aCheckedOut = isCheckedOut(a)
+    const bCheckedOut = isCheckedOut(b)
+    if (aCheckedOut && bCheckedOut) {
+      const aCheckedOutAt = a.checked_out_at || a.check_out || ''
+      const bCheckedOutAt = b.checked_out_at || b.check_out || ''
+      const checkoutComparison = bCheckedOutAt.localeCompare(aCheckedOutAt, undefined, { numeric: true })
+      if (checkoutComparison !== 0) return checkoutComparison
+    }
     const checkInComparison = (a.check_in || '').localeCompare(b.check_in || '', undefined, { numeric: true })
     if (checkInComparison !== 0) return checkInComparison
     return ((Number(a.room_number) || 0) - (Number(b.room_number) || 0))
@@ -111,7 +119,7 @@ function BookingsPageUI({ bookings, loading, edit, remove, cancel, checkIn, chec
   const getBookingStatusLabel = (booking) => {
     if (isCheckedOut(booking)) return 'Checked Out'
     if (booking.check_out === today && !isCheckedOut(booking) && booking.stay_status === 'checked_in') return 'Checking Out Today'
-    if (booking.stay_status === 'checked_in') return 'Checked In'
+    if (booking.stay_status === 'checked_in') return 'Occupied'
     if (booking.stay_status === 'cancelled') return 'Cancelled'
     if (booking.check_in === today && !isCheckedOut(booking) && booking.stay_status !== 'checked_in' && booking.stay_status !== 'cancelled') return 'Arriving Today'
     return 'Reserved'
@@ -119,7 +127,7 @@ function BookingsPageUI({ bookings, loading, edit, remove, cancel, checkIn, chec
   const getBookingStatusClass = (booking) => {
     if (isCheckedOut(booking)) return 'checked-out'
     if (booking.check_out === today && !isCheckedOut(booking) && booking.stay_status === 'checked_in') return 'checkout-today'
-    if (booking.stay_status === 'checked_in') return 'checked-in'
+    if (booking.stay_status === 'checked_in') return 'occupied'
     if (booking.stay_status === 'cancelled') return 'cancelled'
     if (booking.check_in === today && !isCheckedOut(booking) && booking.stay_status !== 'checked_in' && booking.stay_status !== 'cancelled') return 'arriving-today'
     return 'reserved'
@@ -127,7 +135,7 @@ function BookingsPageUI({ bookings, loading, edit, remove, cancel, checkIn, chec
   const getRowStatusClass = (booking) => {
     if (isCheckedOut(booking)) return 'status-checked-out'
     if (booking.check_out === today && !isCheckedOut(booking) && booking.stay_status === 'checked_in') return 'status-checkout-today'
-    if (booking.stay_status === 'checked_in') return 'status-checked-in'
+    if (booking.stay_status === 'checked_in') return 'status-occupied'
     if (booking.stay_status === 'cancelled') return 'status-cancelled'
     if (booking.check_in === today && !isCheckedOut(booking) && booking.stay_status !== 'checked_in' && booking.stay_status !== 'cancelled') return 'status-arriving-today'
     return 'status-reserved'
