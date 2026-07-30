@@ -53,6 +53,31 @@ create table if not exists public.expenses (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.water_bottle_entries (
+  id uuid primary key default gen_random_uuid(),
+  customer_name text not null,
+  room_number text not null default '',
+  quantity integer not null default 1 check (quantity > 0),
+  amount numeric(12,2) not null default 0,
+  entry_date date not null,
+  notes text not null default '',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.water_bottle_stock (
+  id uuid primary key default gen_random_uuid(),
+  supplied_quantity integer not null default 0 check (supplied_quantity >= 0),
+  issued_quantity integer not null default 0 check (issued_quantity >= 0),
+  remaining_quantity integer not null default 0 check (remaining_quantity >= 0),
+  notes text not null default '',
+  entry_date date not null default current_date,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists water_bottle_entries_date_idx on public.water_bottle_entries (entry_date, created_at desc);
+create index if not exists water_bottle_stock_updated_at_idx on public.water_bottle_stock (updated_at desc);
+
 create table if not exists public.activity_logs (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete set null,
@@ -171,6 +196,34 @@ drop policy if exists "Allow authenticated to delete expenses" on public.expense
 create policy "Allow authenticated to delete expenses"
   on public.expenses for delete using (true);
 
+alter table public.water_bottle_entries enable row level security;
+drop policy if exists "Allow authenticated to read water bottle entries" on public.water_bottle_entries;
+create policy "Allow authenticated to read water bottle entries"
+  on public.water_bottle_entries for select using (true);
+drop policy if exists "Allow authenticated to insert water bottle entries" on public.water_bottle_entries;
+create policy "Allow authenticated to insert water bottle entries"
+  on public.water_bottle_entries for insert with check (true);
+drop policy if exists "Allow authenticated to update water bottle entries" on public.water_bottle_entries;
+create policy "Allow authenticated to update water bottle entries"
+  on public.water_bottle_entries for update using (true) with check (true);
+drop policy if exists "Allow authenticated to delete water bottle entries" on public.water_bottle_entries;
+create policy "Allow authenticated to delete water bottle entries"
+  on public.water_bottle_entries for delete using (true);
+
+alter table public.water_bottle_stock enable row level security;
+drop policy if exists "Allow authenticated to read water bottle stock" on public.water_bottle_stock;
+create policy "Allow authenticated to read water bottle stock"
+  on public.water_bottle_stock for select using (true);
+drop policy if exists "Allow authenticated to insert water bottle stock" on public.water_bottle_stock;
+create policy "Allow authenticated to insert water bottle stock"
+  on public.water_bottle_stock for insert with check ((select app_security.is_admin()));
+drop policy if exists "Allow authenticated to update water bottle stock" on public.water_bottle_stock;
+create policy "Allow authenticated to update water bottle stock"
+  on public.water_bottle_stock for update using ((select app_security.is_admin())) with check ((select app_security.is_admin()));
+drop policy if exists "Allow authenticated to delete water bottle stock" on public.water_bottle_stock;
+create policy "Allow authenticated to delete water bottle stock"
+  on public.water_bottle_stock for delete using ((select app_security.is_admin()));
+
 create or replace function app_security.is_admin()
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin' and status = 'active');
@@ -199,8 +252,43 @@ create trigger on_auth_user_created
 grant select, insert, update, delete on public.bookings to authenticated;
 grant select, insert, update, delete on public.cash_handover_entries to authenticated;
 grant select, insert, update, delete on public.expenses to authenticated;
+grant select, insert, update, delete on public.water_bottle_entries to authenticated;
+grant select, insert, update, delete on public.water_bottle_stock to authenticated;
 grant select, insert on public.activity_logs to authenticated;
 grant select, update on public.profiles to authenticated;
+
+create or replace function public.log_activity_entry(
+  p_user_id uuid,
+  p_email text,
+  p_full_name text,
+  p_action text,
+  p_details text,
+  p_created_at timestamptz default now()
+)
+returns public.activity_logs
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  inserted_row public.activity_logs;
+begin
+  insert into public.activity_logs (user_id, email, full_name, action, details, created_at)
+  values (
+    p_user_id,
+    coalesce(p_email, ''),
+    coalesce(p_full_name, ''),
+    p_action,
+    coalesce(p_details, ''),
+    coalesce(p_created_at, now())
+  )
+  returning * into inserted_row;
+
+  return inserted_row;
+end;
+$$;
+
+grant execute on function public.log_activity_entry(uuid, text, text, text, text, timestamptz) to authenticated;
 
 alter table public.bookings enable row level security;
 alter table public.cash_handover_entries enable row level security;

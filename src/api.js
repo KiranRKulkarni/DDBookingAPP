@@ -36,13 +36,12 @@ export async function signOut(userContext = {}) {
   const { userId, email, full_name } = userContext
   if (userId) {
     try {
-      await client().from('activity_logs').insert({
-        user_id: userId,
+      await logActivity({
+        userId,
         email: email || '',
         full_name: full_name || '',
         action: 'logout',
         details: 'Signed out of DD Cottages',
-        created_at: new Date().toISOString(),
       })
     } catch (error) {
       console.error(error)
@@ -64,15 +63,29 @@ export async function getMembers() {
 }
 
 export async function logActivity({ userId, email, full_name, action, details = '' }) {
-  if (!supabase || !userId) return null
-  const { data, error } = await client().from('activity_logs').insert({
-    user_id: userId,
-    email: email || '',
-    full_name: full_name || '',
-    action,
-    details,
-    created_at: new Date().toISOString(),
-  }).select('*').single()
+  if (!supabase) return null
+
+  let resolvedUserId = userId
+  if (!resolvedUserId) {
+    const { data: { user }, error: userError } = await client().auth.getUser()
+    if (userError) {
+      console.error(userError)
+      return null
+    }
+    resolvedUserId = user?.id
+  }
+
+  if (!resolvedUserId) return null
+
+  const { data, error } = await client().rpc('log_activity_entry', {
+    p_user_id: resolvedUserId,
+    p_email: email || '',
+    p_full_name: full_name || '',
+    p_action: action,
+    p_details: details,
+    p_created_at: new Date().toISOString(),
+  })
+
   if (error) {
     console.error(error)
     return null
@@ -98,6 +111,54 @@ export async function getBookings() {
   const { data, error } = await supabase.from('bookings').select('*').order('check_in', { ascending: true })
   if (error) throw error
   return data
+}
+
+export async function getWaterBottleEntries() {
+  if (!supabase) return []
+  const { data, error } = await supabase.from('water_bottle_entries').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+export async function getWaterBottleStock() {
+  if (!supabase) return null
+  const { data, error } = await supabase
+    .from('water_bottle_stock')
+    .select('*')
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
+export async function saveWaterBottleStock(stock) {
+  if (!supabase) throw new Error('Connect Supabase before saving water bottle stock.')
+  const { id, ...values } = stock
+  const payload = {
+    ...values,
+    updated_at: new Date().toISOString(),
+  }
+  const request = id
+    ? supabase.from('water_bottle_stock').update(payload).eq('id', id).select().single()
+    : supabase.from('water_bottle_stock').insert(payload).select().single()
+  const { data, error } = await request
+  if (error) throw error
+  return data
+}
+
+export async function saveWaterBottleEntry(entry) {
+  if (!supabase) throw new Error('Connect Supabase before saving water bottle entries.')
+  const { id: _id, ...values } = entry
+  const { data, error } = await supabase.from('water_bottle_entries').insert(values).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteWaterBottleEntry(id) {
+  if (!supabase) throw new Error('Connect Supabase before deleting water bottle entries.')
+  const { error } = await supabase.from('water_bottle_entries').delete().eq('id', id)
+  if (error) throw error
 }
 
 export async function saveBooking(booking) {
