@@ -41,7 +41,7 @@ export async function signOut(userContext = {}) {
         email: email || '',
         full_name: full_name || '',
         action: 'logout',
-        details: 'Signed out of DD Cottages',
+          details: 'Signed out of Down da village',
       })
     } catch (error) {
       console.error(error)
@@ -82,7 +82,7 @@ export async function logActivity({ userId, email, full_name, action, details = 
     p_email: email || '',
     p_full_name: full_name || '',
     p_action: action,
-    p_details: details,
+      p_details: details,
     p_created_at: new Date().toISOString(),
   })
 

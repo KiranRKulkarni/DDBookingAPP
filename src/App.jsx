@@ -11,7 +11,7 @@ import WaterBottlesPage from './pages/WaterBottlesPage'
 import { formatDisplayDate } from './utils/dateFormat'
 
 const today = new Date().toISOString().slice(0, 10)
-const blankBooking = () => ({ property: 'DD Cottages', room_number: '', guest_name: '', mobile: '', source: 'Direct', check_in: today, check_out: '', adults: 1, children: 0, gross_amount: 0, extra_charges: 0, discount: 0, commission: 0, tds: 0, advance_paid: 0, comment: '', payment_status: 'Pending', payment_method: 'UPI', paid_to: 'Hotel', settlement_status: 'Pending', checked_out: false })
+const blankBooking = () => ({ property: 'Down da village', room_number: '', guest_name: '', mobile: '', source: 'Direct', check_in: today, check_out: '', adults: 1, children: 0, gross_amount: 0, extra_charges: 0, discount: 0, commission: 0, tds: 0, advance_paid: 0, comment: '', payment_status: 'Pending', payment_method: 'UPI', paid_to: 'Hotel', settlement_status: 'Pending', checked_out: false })
 const dateKey = (date) => date.toISOString().slice(0, 10)
 const money = (value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(value || 0))
 const overlap = (booking, date) => booking.check_in <= date && date < booking.check_out
@@ -62,7 +62,7 @@ function Dashboard({ profile, onSignOut }) {
   async function submit(event) {
     event.preventDefault(); setMessage('')
     if (!form.check_out || form.check_out <= form.check_in) return setMessage('Check-out must be after check-in.')
-    const allowedRooms = PROPERTY_ROOMS[form.property] || PROPERTY_ROOMS['DD Cottages']
+    const allowedRooms = PROPERTY_ROOMS[form.property] || PROPERTY_ROOMS['Down da village']
     const selectedRooms = (form.room_number || '').split(',').map((room) => room.trim()).filter(Boolean).filter((room) => allowedRooms.includes(room))
     if (!selectedRooms.length) return setMessage('Select at least one valid room for the chosen property.')
     const conflicting = bookings.find((b) => b.id !== form.id && b.property === form.property && b.checked_out !== true && b.stay_status !== 'checked_out' && b.check_in < form.check_out && form.check_in < b.check_out && b.room_number.split(',').some((room) => selectedRooms.includes(room)))
@@ -148,16 +148,16 @@ function AuthScreen() {
             email: values.email,
             full_name: values.fullName || '',
             action: 'login',
-            details: 'Signed in to DD Cottages',
+            details: 'Signed in to Down da village',
           })
         }
       }
     } catch (error) { setMessage(error.message) } finally { setBusy(false) }
   }
-  return <main className="auth-page"><section className="auth-card"><p className="eyebrow">DD COTTAGES · MEMBER PORTAL</p><h1>{register ? 'Request team access' : 'Welcome back'}</h1><p className="subtle">{register ? 'Create an account. We will send an email confirmation before an administrator approves access.' : 'Sign in to manage bookings and room availability.'}</p><form onSubmit={submit} className="auth-form">{register && <Field label="Full name" name="fullName" value={values.fullName} onChange={(name, value) => setValues((current) => ({ ...current, [name]: value }))} required/>}<Field label="Email address" name="email" value={values.email} onChange={(name, value) => setValues((current) => ({ ...current, [name]: value }))} type="email" required/><Field label="Password" name="password" value={values.password} onChange={(name, value) => setValues((current) => ({ ...current, [name]: value }))} type="password" minLength="6" required/><button disabled={busy}>{busy ? 'Please wait…' : register ? 'Register and send email' : 'Sign in'}</button></form>{message && <p className="message">{message}</p>}<button className="text-button auth-switch" onClick={() => { setMode(register ? 'login' : 'register'); setMessage('') }}>{register ? 'Already have an account? Sign in' : 'Need access? Register here'}</button></section></main>
+  return <main className="auth-page"><section className="auth-card"><p className="eyebrow">DOWN DA VILLAGE · MEMBER PORTAL</p><h1>{register ? 'Request team access' : 'Welcome back'}</h1><p className="subtle">{register ? 'Create an account. We will send an email confirmation before an administrator approves access.' : 'Sign in to manage bookings and room availability.'}</p><form onSubmit={submit} className="auth-form">{register && <Field label="Full name" name="fullName" value={values.fullName} onChange={(name, value) => setValues((current) => ({ ...current, [name]: value }))} required/>}<Field label="Email address" name="email" value={values.email} onChange={(name, value) => setValues((current) => ({ ...current, [name]: value }))} type="email" required/><Field label="Password" name="password" value={values.password} onChange={(name, value) => setValues((current) => ({ ...current, [name]: value }))} type="password" minLength="6" required/><button disabled={busy}>{busy ? 'Please wait…' : register ? 'Register and send email' : 'Sign in'}</button></form>{message && <p className="message">{message}</p>}<button className="text-button auth-switch" onClick={() => { setMode(register ? 'login' : 'register'); setMessage('') }}>{register ? 'Already have an account? Sign in' : 'Need access? Register here'}</button></section></main>
 }
 
-function AuthNotice({ title, message, signOutButton }) { return <section className="auth-card notice"><p className="eyebrow">DD COTTAGES</p><h1>{title}</h1><p className="subtle">{message}</p>{signOutButton && <button onClick={() => signOut()}>Sign out</button>}</section> }
+function AuthNotice({ title, message, signOutButton }) { return <section className="auth-card notice"><p className="eyebrow">DOWN DA VILLAGE</p><h1>{title}</h1><p className="subtle">{message}</p>{signOutButton && <button onClick={() => signOut()}>Sign out</button>}</section> }
 
 function Overview({ totals, bookings }) { return <><section className="metrics"><Metric label="Total bookings" value={totals.bookings} /><Metric label="Gross revenue" value={money(totals.revenue)} /><Metric label="Payment follow-ups" value={totals.pending} /></section><section className="records"><p className="eyebrow">OVERVIEW</p><h2>Current booking status</h2><p className="subtle">{bookings.length ? 'Use the Calendar page to inspect room-by-room availability.' : 'No bookings have been added yet.'}</p></section></> }
 

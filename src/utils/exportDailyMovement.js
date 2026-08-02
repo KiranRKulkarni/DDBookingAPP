@@ -42,5 +42,5 @@ export function exportDailyMovement(bookings) {
   sheet['!cols'] = [{ wch: 13 }, { wch: 12 }, { wch: 16 }, { wch: 18 }, { wch: 26 }, { wch: 16 }, { wch: 16 }, { wch: 13 }, { wch: 13 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 16 }, { wch: 17 }, { wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 17 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 18 }, { wch: 23 }, { wch: 16 }]
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, sheet, 'Daily movement')
-  XLSX.writeFile(workbook, `DD-Cottages-Daily-Movement-${today}.xlsx`)
+  XLSX.writeFile(workbook, `Down-da-village-Daily-Movement-${today}.xlsx`)
 }

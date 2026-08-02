@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx'
 
 const nights = (booking) => Math.round((new Date(`${booking.check_out}T00:00:00`) - new Date(`${booking.check_in}T00:00:00`)) / 86400000)
 
-export function exportBookings(bookings, filename = 'DD-Cottages-Bookings') {
+export function exportBookings(bookings, filename = 'Down-da-village-Bookings') {
   const rows = bookings.map((booking) => ({
     Property: booking.property,
     'Room/Cottage No.': booking.room_number,
