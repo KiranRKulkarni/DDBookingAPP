@@ -115,7 +115,7 @@ export default function ExpensesPage() {
               {PROPERTIES.map((property) => <option key={property} value={property}>{property}</option>)}
             </select>
           </label>
-          <button className="export-button" onClick={() => exportExpenses(filteredEntries, propertyFilter === 'All properties' ? 'Down-da-village-Expenses' : `Down-da-village-Expenses-${propertyFilter}`)}>Export Excel</button>
+          <button className="export-button" onClick={() => exportExpenses(filteredEntries, propertyFilter === 'All properties' ? 'DD-Cottages-Expenses' : `DD-Cottages-Expenses-${propertyFilter}`)}>Export Excel</button>
         </div>
         <div className="expense-total-card">
           <small>Total expenses</small>

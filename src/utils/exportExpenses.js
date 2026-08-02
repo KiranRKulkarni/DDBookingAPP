@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx'
 
-export function exportExpenses(expenses, filename = 'Down-da-village-Expenses') {
+export function exportExpenses(expenses, filename = 'DD-Cottages-Expenses') {
   const rows = expenses.map((entry) => ({
     Date: entry.entry_date || '',
     Property: entry.property || '',

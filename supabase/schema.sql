@@ -1,7 +1,7 @@
--- Down da village: bookings, member access, and roles
+-- DD Cottages: bookings, member access, and roles
 create table if not exists public.bookings (
   id uuid primary key default gen_random_uuid(),
-  property text not null check (property = 'Down da village'),
+  property text not null check (property in ('DD Cottages', 'DD Villa', 'DD Serenity Cottages')),
   room_number text not null,
   guest_name text not null,
   mobile text,
@@ -31,10 +31,8 @@ create index if not exists bookings_dates_idx on public.bookings (check_in, chec
 create index if not exists bookings_room_idx on public.bookings (room_number, check_in, check_out);
 
 alter table public.bookings drop constraint if exists bookings_property_check;
--- Consolidate legacy property records into the single Down da village inventory.
-update public.bookings set property = 'Down da village' where property <> 'Down da village';
 alter table public.bookings add constraint bookings_property_check
-  check (property = 'Down da village');
+  check (property in ('DD Cottages', 'DD Villa', 'DD Serenity Cottages'));
 
 create table if not exists public.cash_handover_entries (
   id uuid primary key default gen_random_uuid(),
@@ -116,6 +114,12 @@ create policy "Allow authenticated to cancel bookings"
   using (true)
   with check (stay_status in ('reserved', 'checked_in', 'checked_out', 'cancelled'));
 
+-- One-time room renumbering: converts existing 01–15 records to 101–115.
+update public.bookings
+set room_number = (100 + room_number::integer)::text
+where room_number ~ '^0?[1-9]$|^1[0-5]$'
+  and room_number::integer between 1 and 15;
+
 -- A profile is created automatically each time someone registers through Supabase Auth.
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -133,11 +137,6 @@ grant usage on schema app_security to authenticated;
 create or replace function app_security.is_active_member()
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (select 1 from public.profiles where id = auth.uid() and status = 'active');
-$$;
-
-create or replace function app_security.is_admin()
-returns boolean language sql stable security definer set search_path = public as $$
-  select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin' and status = 'active');
 $$;
 
 -- Enable RLS on bookings table
@@ -224,6 +223,11 @@ create policy "Allow authenticated to update water bottle stock"
 drop policy if exists "Allow authenticated to delete water bottle stock" on public.water_bottle_stock;
 create policy "Allow authenticated to delete water bottle stock"
   on public.water_bottle_stock for delete using ((select app_security.is_admin()));
+
+create or replace function app_security.is_admin()
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin' and status = 'active');
+$$;
 
 revoke all on function app_security.is_active_member() from public;
 revoke all on function app_security.is_admin() from public;

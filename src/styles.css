@@ -438,7 +438,7 @@ button:disabled {
 .day,
 .calendar-row > strong,
 .calendar-row span {
-  height: 40px;
+  height: 31px;
   border-right: 1px solid #e4ebe5;
   border-bottom: 1px solid #e4ebe5;
   display: grid;
@@ -461,20 +461,6 @@ button:disabled {
 .calendar-row > strong {
   background: #fbfdfb;
   color: #365f55;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 2px;
-  padding: 0 9px;
-  line-height: 1;
-  font-size: 12px;
-}
-.calendar-row > strong small {
-  color: #71877d;
-  font-size: 10px;
-  font-weight: 600;
-  white-space: nowrap;
 }
 .calendar-row span {
   color: #fff;
@@ -631,13 +617,6 @@ td small {
   display: block;
   margin-top: 2px;
   color: #73897e;
-}
-.booking-room small {
-  display: block;
-  margin-top: 3px;
-  color: #71877d;
-  font-size: 11px;
-  font-weight: 600;
 }
 .room-cell {
   display: flex;
@@ -1479,7 +1458,7 @@ td.occupied-room {
   }
 }
 .room-selector {
-  grid-column: 1 / -1;
+  grid-column: span 2;
   border: 1px solid #d9e3da;
   border-radius: 8px;
   margin: 0;
@@ -1497,44 +1476,9 @@ td.occupied-room {
   padding: 0 4px;
 }
 .room-selector > div {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-.room-category {
-  border: 1px solid #e4ece6;
-  border-radius: 7px;
-  padding: 8px;
-}
-.room-category-1 { background: linear-gradient(135deg, #fffdf5 0%, #ffedbd 100%); border-color: #ecd28f; }
-.room-category-2 { background: linear-gradient(135deg, #fdfaff 0%, #ead8fa 100%); border-color: #d7bdea; }
-.room-category-3 { background: linear-gradient(135deg, #f8fdff 0%, #d0edfb 100%); border-color: #abd9ee; }
-.room-category-4 { background: linear-gradient(135deg, #f8fdf9 0%, #cfedd9 100%); border-color: #aadbb9; }
-.room-category-5 { background: linear-gradient(135deg, #fffafa 0%, #f9d5ce 100%); border-color: #ebbbb1; }
-.room-category-6 { background: linear-gradient(135deg, #fafbff 0%, #d9e0fa 100%); border-color: #b9c6ed; }
-.room-category header {
-  display: flex;
-  justify-content: space-between;
-  gap: 6px;
-  margin-bottom: 7px;
-  color: #486e61;
-  font-size: 11px;
-}
-.room-category header small {
-  margin: 0;
-  color: #71877d;
-  font-weight: 500;
-  text-align: right;
-}
-.room-category-options {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-@media (max-width: 1000px) {
-  .room-selector > div {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 .room-selector label {
   display: block;
@@ -1590,10 +1534,7 @@ td.occupied-room {
 }
 @media (max-width: 650px) {
   .room-selector {
-    grid-column: 1;
-  }
-  .room-selector > div {
-    grid-template-columns: 1fr;
+    grid-column: span 1;
   }
 }
 
